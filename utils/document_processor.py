@@ -132,6 +132,43 @@ def process_csv(file_path):
         # Log the CSV processing attempt
         logger.debug(f"Attempting to process CSV file: {file_path}")
         
+        # Read CSV in chunks to avoid memory issues
+        chunks = []
+        chunk_size = 100
+        
+        # First get column info and basic stats
+        df_info = pd.read_csv(file_path, nrows=1)
+        col_count = len(df_info.columns)
+        overview = f"CSV file with {col_count} columns.\nColumn names: {', '.join(df_info.columns.tolist())}\n\n"
+        chunks.append(overview)
+        
+        # Process the file in chunks
+        for chunk_df in pd.read_csv(file_path, chunksize=chunk_size):
+            chunk_text = []
+            
+            # Basic stats for numeric columns
+            numeric_cols = chunk_df.select_dtypes(include=['number']).columns
+            if len(numeric_cols) > 0:
+                stats = chunk_df[numeric_cols].agg(['mean', 'min', 'max']).round(2)
+                chunk_text.append("Numeric column statistics:")
+                for col in numeric_cols:
+                    chunk_text.append(f"{col}: mean={stats.loc['mean', col]}, min={stats.loc['min', col]}, max={stats.loc['max', col]}")
+            
+            # Sample rows (limited)
+            sample_size = min(5, len(chunk_df))
+            chunk_text.append("\nSample rows:")
+            for _, row in chunk_df.head(sample_size).iterrows():
+                row_items = []
+                for col in chunk_df.columns:
+                    val = row[col]
+                    val_str = str(val) if pd.notna(val) else "NULL"
+                    row_items.append(f"{col}: {val_str}")
+                chunk_text.append(", ".join(row_items))
+            
+            chunks.append("\n".join(chunk_text))
+        
+        return chunks
+        
         # Try to read the CSV with different encodings if needed
         try:
             df = pd.read_csv(file_path)
