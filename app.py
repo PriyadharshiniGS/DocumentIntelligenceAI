@@ -65,117 +65,182 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     """Upload and process a file."""
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
-    
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if file and allowed_file(file.filename):
-        try:
-            # Create a unique filename
-            original_filename = secure_filename(file.filename)
-            file_type = get_file_type(original_filename)
-            file_id = str(uuid.uuid4())
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        
+        if not file or not allowed_file(file.filename):
+            return jsonify({'error': 'File type not allowed'}), 400
             
-            # Create a temporary directory for processing
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_filepath = os.path.join(temp_dir, original_filename)
-                file.save(temp_filepath)
+        # Create a unique filename
+        original_filename = secure_filename(file.filename)
+        file_type = get_file_type(original_filename)
+        file_id = str(uuid.uuid4())
+        
+        if not file_type:
+            return jsonify({'error': 'Unsupported file extension'}), 400
+            
+        # Log the file upload attempt
+        logger.debug(f"Attempting to process file: {original_filename} of type {file_type}")
+        
+        # Create a temporary directory for processing
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_filepath = os.path.join(temp_dir, original_filename)
+            file.save(temp_filepath)
+            
+            # Process the file based on its type
+            if file_type == 'document':
+                logger.debug(f"Processing document: {original_filename}")
+                text_chunks = process_document(temp_filepath, original_filename)
+            elif file_type == 'image':
+                logger.debug(f"Processing image: {original_filename}")
+                text_chunks = process_image(temp_filepath)
+            elif file_type == 'video':
+                logger.debug(f"Processing video: {original_filename}")
+                text_chunks = process_video(temp_filepath)
+            else:
+                return jsonify({'error': 'Unsupported file type'}), 400
+            
+            # Make sure we have something to work with
+            if not text_chunks or len(text_chunks) == 0:
+                return jsonify({'error': 'No content could be extracted from the file'}), 400
                 
-                # Process the file based on its type
-                if file_type == 'document':
-                    logger.debug(f"Processing document: {original_filename}")
-                    text_chunks = process_document(temp_filepath, original_filename)
-                elif file_type == 'image':
-                    logger.debug(f"Processing image: {original_filename}")
-                    text_chunks = process_image(temp_filepath)
-                elif file_type == 'video':
-                    logger.debug(f"Processing video: {original_filename}")
-                    text_chunks = process_video(temp_filepath)
-                else:
-                    return jsonify({'error': 'Unsupported file type'}), 400
-                
-                # Get embeddings for each text chunk
-                for i, chunk in enumerate(text_chunks):
-                    try:
-                        embedding = get_embeddings(chunk)
-                        # Add to vector store with metadata
-                        vector_store.add_embedding(
-                            embedding, 
-                            {
-                                'text': chunk,
-                                'file_id': file_id,
-                                'file_name': original_filename,
-                                'chunk_id': i
-                            }
-                        )
-                    except Exception as e:
-                        logger.error(f"Error embedding chunk {i}: {str(e)}")
-                
-                # Update session documents
-                if 'documents' not in session:
-                    session['documents'] = []
+            # Log successful text extraction
+            logger.debug(f"Successfully extracted {len(text_chunks)} text chunks from {original_filename}")
+            
+            # Get embeddings for each text chunk
+            successful_embeddings = 0
+            for i, chunk in enumerate(text_chunks):
+                try:
+                    # Skip empty chunks
+                    if not chunk or not chunk.strip():
+                        logger.warning(f"Skipping empty chunk {i}")
+                        continue
+                        
+                    # Generate embedding
+                    embedding = get_embeddings(chunk)
                     
-                session['documents'].append({
-                    'id': file_id,
-                    'name': original_filename,
-                    'type': file_type
-                })
-                session.modified = True
+                    # Add to vector store with metadata
+                    vector_store.add_embedding(
+                        embedding, 
+                        {
+                            'text': chunk,
+                            'file_id': file_id,
+                            'file_name': original_filename,
+                            'chunk_id': i
+                        }
+                    )
+                    successful_embeddings += 1
+                except Exception as e:
+                    logger.error(f"Error embedding chunk {i}: {str(e)}")
+            
+            # Check if we have any successful embeddings
+            if successful_embeddings == 0:
+                return jsonify({'error': 'Failed to create embeddings for the document'}), 500
                 
-                return jsonify({
-                    'success': True,
-                    'filename': original_filename,
-                    'fileId': file_id,
-                    'fileType': file_type,
-                    'chunkCount': len(text_chunks)
-                })
+            # Log successful embeddings
+            logger.debug(f"Successfully created {successful_embeddings} embeddings for {original_filename}")
+            
+            # Update session documents
+            if 'documents' not in session:
+                session['documents'] = []
                 
-        except Exception as e:
-            logger.error(f"Error processing file: {str(e)}")
-            return jsonify({'error': f'Error processing file: {str(e)}'}), 500
-    
-    return jsonify({'error': 'File type not allowed'}), 400
+            session['documents'].append({
+                'id': file_id,
+                'name': original_filename,
+                'type': file_type
+            })
+            session.modified = True
+            
+            return jsonify({
+                'success': True,
+                'filename': original_filename,
+                'fileId': file_id,
+                'fileType': file_type,
+                'chunkCount': len(text_chunks),
+                'embeddingCount': successful_embeddings
+            })
+            
+    except Exception as e:
+        # Detailed error logging
+        logger.error(f"Error processing file: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({'error': f'Error processing file: {str(e)}'}), 500
 
 @app.route('/chat', methods=['POST'])
 def chat():
     """Process a chat message and generate a response."""
-    data = request.json
-    query = data.get('message', '')
-    
-    if not query:
-        return jsonify({'error': 'No message provided'}), 400
-    
     try:
-        # Get query embedding
-        query_embedding = get_embeddings(query)
+        # Check if we have valid JSON
+        if not request.is_json:
+            return jsonify({'error': 'Request must be JSON'}), 400
+            
+        data = request.json
+        query = data.get('message', '').strip()
+        
+        # Validate query
+        if not query:
+            return jsonify({'error': 'No message provided'}), 400
+        
+        logger.debug(f"Processing chat query: {query[:50]}...")
+        
+        # Generate embedding for query
+        try:
+            query_embedding = get_embeddings(query)
+            logger.debug("Successfully generated query embedding")
+        except Exception as e:
+            logger.error(f"Error generating query embedding: {str(e)}")
+            return jsonify({'error': 'Failed to process your question. Please try again.'}), 500
         
         # Search for relevant documents
-        search_results = vector_store.search(query_embedding, k=5)
+        try:
+            search_results = vector_store.search(query_embedding, k=5)
+            logger.debug(f"Found {len(search_results)} relevant document chunks")
+        except Exception as e:
+            logger.error(f"Error searching vector store: {str(e)}")
+            return jsonify({'error': 'Error searching knowledge base. Please try again.'}), 500
         
+        # Handle case with no relevant documents
         if not search_results:
+            logger.debug("No relevant documents found for query")
             return jsonify({
                 'answer': "I don't have enough information to answer that question. Try uploading relevant documents first."
             })
         
         # Generate response using RAG
-        context_texts = [result['metadata']['text'] for result in search_results]
-        context = "\n\n".join(context_texts)
-        
-        response = generate_response(query, context)
+        try:
+            # Extract context texts
+            context_texts = [result['metadata']['text'] for result in search_results]
+            context = "\n\n".join(context_texts)
+            
+            # Generate response
+            response = generate_response(query, context)
+            logger.debug("Successfully generated response")
+        except Exception as e:
+            logger.error(f"Error generating response: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({'error': 'Failed to generate a response. Please try again.'}), 500
         
         # Update chat history
-        if 'chat_history' not in session:
-            session['chat_history'] = []
-            
-        session['chat_history'].append({
-            'query': query,
-            'response': response
-        })
-        session.modified = True
+        try:
+            if 'chat_history' not in session:
+                session['chat_history'] = []
+                
+            session['chat_history'].append({
+                'query': query,
+                'response': response
+            })
+            session.modified = True
+        except Exception as e:
+            # Non-critical error, just log
+            logger.error(f"Error updating chat history: {str(e)}")
         
         # Get source documents for citation
         sources = []
@@ -189,25 +254,43 @@ def chat():
         })
         
     except Exception as e:
-        logger.error(f"Error generating response: {str(e)}")
-        return jsonify({'error': f'Error generating response: {str(e)}'}), 500
+        # Catch-all for any other errors
+        logger.error(f"Unexpected error in chat: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({'error': f'An unexpected error occurred: {str(e)}'}), 500
 
 @app.route('/documents', methods=['GET'])
 def get_documents():
     """Get list of uploaded documents."""
-    if 'documents' not in session:
-        session['documents'] = []
-    return jsonify(session['documents'])
+    try:
+        if 'documents' not in session:
+            session['documents'] = []
+        return jsonify(session['documents'])
+    except Exception as e:
+        logger.error(f"Error retrieving documents: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Failed to retrieve documents. Please refresh the page.'}), 500
 
 @app.route('/clear', methods=['POST'])
 def clear_session():
     """Clear session data and vector store."""
     try:
+        # Clear session first
+        logger.debug("Clearing session data")
         session.clear()
+        
+        # Then clear vector store
+        logger.debug("Clearing vector store")
         vector_store.clear()
-        return jsonify({'success': True})
+        
+        logger.debug("Session and vector store successfully cleared")
+        return jsonify({'success': True, 'message': 'Session data and documents cleared successfully'})
     except Exception as e:
         logger.error(f"Error clearing session: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return jsonify({'error': f'Error clearing session: {str(e)}'}), 500
 
 if __name__ == '__main__':
