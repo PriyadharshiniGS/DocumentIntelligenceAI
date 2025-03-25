@@ -1,23 +1,26 @@
 import os
 import logging
 import numpy as np
-import anthropic
-from anthropic import Anthropic
+import requests
 import json
+import openai
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Initialize Anthropic client
+# Get API keys
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-client = Anthropic(
-    api_key=ANTHROPIC_API_KEY,
-)
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+
+# Initialize OpenAI client for embeddings
+openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 def get_embeddings(text):
     """
-    Generate embeddings for the input text using Anthropic Claude API.
+    Generate embeddings for the input text using OpenAI API.
+    Since Anthropic embeddings are not as easily accessible, 
+    we'll use OpenAI's embeddings API instead.
     
     Args:
         text (str): Input text for which to generate embeddings
@@ -32,14 +35,15 @@ def get_embeddings(text):
         
         text = text.replace("\n", " ").strip()
         
-        # Generate embeddings using Anthropic's embeddings API
-        response = client.embeddings.create(
-            model="claude-3-5-sonnet-20241022-embeddings",
-            input=text
+        # Use OpenAI embeddings (more stable API for embeddings)
+        response = openai_client.embeddings.create(
+            model="text-embedding-3-small",
+            input=text,
+            encoding_format="float"
         )
         
-        # Extract embedding from response
-        embedding = response.embedding
+        # Extract embedding
+        embedding = response.data[0].embedding
         
         return np.array(embedding, dtype=np.float32)
     
