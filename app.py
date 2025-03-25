@@ -3,7 +3,6 @@ import logging
 import tempfile
 import uuid
 import streamlit as st
-from werkzeug.utils import secure_filename
 import numpy as np
 
 from utils.document_processor import process_document
@@ -37,6 +36,19 @@ ALLOWED_EXTENSIONS = {
     'mov': 'video/quicktime',
     'avi': 'video/x-msvideo'
 }
+
+def secure_filename(filename):
+    """
+    Sanitize a filename to be safely stored in the filesystem.
+    Replaces dangerous characters with underscores.
+    """
+    import re
+    # Remove potentially dangerous characters
+    filename = re.sub(r'[^\w\s.-]', '_', filename).strip()
+    # Ensure it doesn't start with a dot (hidden files in Unix)
+    if filename.startswith('.'):
+        filename = f"file_{filename}"
+    return filename
 
 def allowed_file(filename):
     """Check if file has an allowed extension."""

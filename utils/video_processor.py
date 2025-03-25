@@ -146,28 +146,16 @@ def _extract_and_transcribe_audio(file_path: str) -> str:
 def _transcribe_audio(audio_path: str) -> str:
     """Transcribe an audio file to text."""
     try:
-        from openai import OpenAI
-        import os
+        # Currently, Anthropic API doesn't have direct audio transcription functionality
+        # So we provide a simpler workaround here
+        logger.info("Note: Anthropic API does not directly support audio transcription.")
         
-        # Check if OpenAI API key is available
-        if "OPENAI_API_KEY" not in os.environ:
-            return "Audio transcription unavailable: API configuration missing."
+        # Use a simpler approach - extract key frames and rely on those instead
+        logger.info("Using extracted video frames for content instead of audio transcription")
         
-        # Initialize OpenAI client
-        client = OpenAI()
+        # Return a message explaining the limitation
+        return "Audio transcription not available with current Anthropic API. Using video frame content instead."
         
-        # Transcribe audio
-        with open(audio_path, "rb") as audio_file:
-            transcription = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file
-            )
-        
-        return transcription.text
-    
-    except ImportError:
-        logger.warning("OpenAI package not available, audio transcription unavailable")
-        return "Audio transcription unavailable: required libraries missing."
     except Exception as e:
         logger.error(f"Transcription error: {str(e)}")
         return f"Audio transcription error: {str(e)}"
