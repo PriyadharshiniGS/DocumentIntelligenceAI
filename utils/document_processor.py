@@ -132,6 +132,46 @@ def process_csv(file_path):
         # Log the CSV processing attempt
         logger.debug(f"Attempting to process CSV file: {file_path}")
         
+        # Read CSV in smaller chunks with optimized settings
+        chunks = []
+        chunksize = 1000  # Process 1000 rows at a time
+        
+        # First get basic file info
+        with pd.read_csv(file_path, nrows=1) as df_info:
+            columns = df_info.columns.tolist()
+            chunks.append(f"CSV file contains {len(columns)} columns: {', '.join(columns)}")
+        
+        # Process the file in chunks
+        for chunk_number, df_chunk in enumerate(pd.read_csv(file_path, chunksize=chunksize)):
+            if chunk_number > 10:  # Limit to first 10,000 rows for large files
+                break
+                
+            chunk_text = []
+            
+            # Basic statistics for numeric columns
+            numeric_cols = df_chunk.select_dtypes(include=['number']).columns
+            if len(numeric_cols) > 0:
+                stats = df_chunk[numeric_cols].agg(['mean', 'min', 'max']).round(2)
+                for col in numeric_cols:
+                    chunk_text.append(f"{col} stats - mean: {stats.loc['mean', col]}, min: {stats.loc['min', col]}, max: {stats.loc['max', col]}")
+            
+            # Sample rows (limit to 5 per chunk)
+            sample_rows = []
+            for _, row in df_chunk.head(5).iterrows():
+                row_items = []
+                for col in columns:
+                    val = str(row[col]) if pd.notna(row[col]) else "NULL"
+                    val = val[:100] + '...' if len(val) > 100 else val  # Truncate long values
+                    row_items.append(f"{col}: {val}")
+                sample_rows.append(", ".join(row_items))
+            
+            if sample_rows:
+                chunk_text.append("\nSample rows:\n" + "\n".join(sample_rows))
+            
+            chunks.append("\n".join(chunk_text))
+            
+        return chunks
+        
         chunks = []
         # Read only first few rows to get schema and sample data
         df_sample = pd.read_csv(file_path, nrows=10)
