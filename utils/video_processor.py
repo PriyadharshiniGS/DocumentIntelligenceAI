@@ -7,15 +7,18 @@ from PIL import Image
 import io
 import numpy as np
 import cv2
-from openai import OpenAI
+import anthropic
+from anthropic import Anthropic
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI client
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-openai = OpenAI(api_key=OPENAI_API_KEY)
+# Initialize Anthropic client
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+client = Anthropic(
+    api_key=ANTHROPIC_API_KEY,
+)
 
 def process_video(file_path):
     """
@@ -34,10 +37,10 @@ def process_video(file_path):
         # Extract key frames from the video
         frame_paths = extract_key_frames(file_path)
         
-        # Analyze key frames with GPT-4 Vision
+        # Analyze key frames with Claude Vision
         frame_descriptions = []
         for i, frame_path in enumerate(frame_paths):
-            description = analyze_frame_with_gpt4(frame_path)
+            description = analyze_frame_with_claude(frame_path)
             frame_descriptions.append(f"Frame {i+1}: {description}")
         
         # Compile results
@@ -152,9 +155,9 @@ def extract_key_frames(file_path, max_frames=5):
         logger.error(f"Error extracting key frames: {str(e)}")
         return []
 
-def analyze_frame_with_gpt4(frame_path):
+def analyze_frame_with_claude(frame_path):
     """
-    Analyze a video frame using GPT-4 Vision.
+    Analyze a video frame using Claude Vision.
     
     Args:
         frame_path (str): Path to the frame image
@@ -163,13 +166,14 @@ def analyze_frame_with_gpt4(frame_path):
         str: Description of the frame
     """
     try:
-        # Convert image to base64
-        with open(frame_path, "rb") as image_file:
-            base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+        # Read the image file
+        with open(frame_path, "rb") as img_file:
+            image_data = img_file.read()
         
-        # Call OpenAI API to analyze the image
-        response = openai.chat.completions.create(
-            model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        # Set up the Claude Vision request
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022", # the newest Anthropic model is "claude-3-5-sonnet-20241022" which was released October 22, 2024
+            max_tokens=200,
             messages=[
                 {
                     "role": "user",
@@ -179,22 +183,25 @@ def analyze_frame_with_gpt4(frame_path):
                             "text": "This is a frame from a video. Describe what you see in this frame concisely but with important details."
                         },
                         {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": base64.b64encode(image_data).decode('utf-8')
+                            }
                         }
                     ]
                 }
-            ],
-            max_tokens=200
+            ]
         )
         
         # Extract the description
-        description = response.choices[0].message.content
+        description = response.content[0].text
         
         return description
     
     except Exception as e:
-        logger.error(f"GPT-4 Vision frame analysis error: {str(e)}")
+        logger.error(f"Claude Vision frame analysis error: {str(e)}")
         return "Could not analyze this frame"
 
 def generate_video_summary(metadata, frame_descriptions):
@@ -212,7 +219,7 @@ def generate_video_summary(metadata, frame_descriptions):
         # Combine frame descriptions
         frames_text = "\n".join(frame_descriptions)
         
-        # Generate summary using GPT
+        # Generate summary using Claude
         prompt = f"""
         Based on the following video metadata and key frame descriptions, provide a concise summary of what this video is about:
         
@@ -225,15 +232,15 @@ def generate_video_summary(metadata, frame_descriptions):
         Please provide a 2-3 paragraph summary of what appears to be happening in this video.
         """
         
-        response = openai.chat.completions.create(
-            model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022", # the newest Anthropic model is "claude-3-5-sonnet-20241022" which was released October 22, 2024
+            max_tokens=300,
             messages=[
                 {"role": "user", "content": prompt}
-            ],
-            max_tokens=300
+            ]
         )
         
-        summary = response.choices[0].message.content
+        summary = response.content[0].text
         return summary
     
     except Exception as e:

@@ -4,15 +4,18 @@ import base64
 from PIL import Image
 import io
 import pytesseract
-from openai import OpenAI
+import anthropic
+from anthropic import Anthropic
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI client
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-openai = OpenAI(api_key=OPENAI_API_KEY)
+# Initialize Anthropic client
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+client = Anthropic(
+    api_key=ANTHROPIC_API_KEY,
+)
 
 def process_image(file_path):
     """
@@ -28,8 +31,8 @@ def process_image(file_path):
         # First, try OCR with Tesseract to extract any text
         ocr_text = extract_text_with_ocr(file_path)
         
-        # Then, use OpenAI's GPT-4 Vision to analyze the image
-        vision_description = analyze_image_with_gpt4(file_path)
+        # Then, use Claude Vision to analyze the image
+        vision_description = analyze_image_with_claude(file_path)
         
         # Combine results
         results = []
@@ -73,9 +76,9 @@ def extract_text_with_ocr(file_path):
         logger.error(f"OCR extraction error: {str(e)}")
         return ""
 
-def analyze_image_with_gpt4(file_path):
+def analyze_image_with_claude(file_path):
     """
-    Analyze image content using GPT-4 Vision.
+    Analyze image content using Claude's Vision capabilities.
     
     Args:
         file_path (str): Path to the image file
@@ -84,13 +87,14 @@ def analyze_image_with_gpt4(file_path):
         str: Description of the image
     """
     try:
-        # Convert image to base64
-        with open(file_path, "rb") as image_file:
-            base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+        # Read the image file
+        with open(file_path, "rb") as img_file:
+            image_data = img_file.read()
         
-        # Call OpenAI API to analyze the image
-        response = openai.chat.completions.create(
-            model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        # Set up the Claude Vision request
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022", # the newest Anthropic model is "claude-3-5-sonnet-20241022" which was released October 22, 2024
+            max_tokens=500,
             messages=[
                 {
                     "role": "user",
@@ -100,20 +104,23 @@ def analyze_image_with_gpt4(file_path):
                             "text": "Analyze this image in detail. Describe what you see, including objects, people, scenes, text, and any other relevant information. Be thorough but concise."
                         },
                         {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": base64.b64encode(image_data).decode('utf-8')
+                            }
                         }
                     ]
                 }
-            ],
-            max_tokens=500
+            ]
         )
         
         # Extract the description
-        description = response.choices[0].message.content
+        description = response.content[0].text
         
         return description
     
     except Exception as e:
-        logger.error(f"GPT-4 Vision analysis error: {str(e)}")
+        logger.error(f"Claude Vision analysis error: {str(e)}")
         return ""

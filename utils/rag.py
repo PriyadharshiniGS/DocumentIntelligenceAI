@@ -1,14 +1,17 @@
 import os
 import logging
-from openai import OpenAI
+import anthropic
+from anthropic import Anthropic
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI client
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-openai = OpenAI(api_key=OPENAI_API_KEY)
+# Initialize Anthropic client
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+client = Anthropic(
+    api_key=ANTHROPIC_API_KEY,
+)
 
 def generate_response(query, context):
     """
@@ -22,7 +25,7 @@ def generate_response(query, context):
         str: Generated response
     """
     try:
-        # Create a system message that instructs the model to answer based on provided context
+        # Create system message and prompt for Claude
         system_message = """
         You are a helpful assistant that answers questions based only on the provided context.
         If the context doesn't contain the answer, acknowledge that you don't have enough information rather than making up an answer.
@@ -30,7 +33,7 @@ def generate_response(query, context):
         Be clear, direct, and informative in your responses.
         """
         
-        # Create user message with context
+        # Create full message with context
         user_message = f"""
         Context:
         {context}
@@ -38,11 +41,11 @@ def generate_response(query, context):
         Question: {query}
         """
         
-        # Call OpenAI API for completion
-        response = openai.chat.completions.create(
-            model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        # Call Anthropic Claude API for completion
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022", # the newest Anthropic model is "claude-3-5-sonnet-20241022" which was released October 22, 2024
+            system=system_message,
             messages=[
-                {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message}
             ],
             temperature=0.5,  # Lower temperature for more factual responses
@@ -50,7 +53,7 @@ def generate_response(query, context):
         )
         
         # Extract and return the generated response
-        answer = response.choices[0].message.content
+        answer = response.content[0].text
         
         logger.debug(f"Generated response for query: {query[:50]}...")
         return answer
