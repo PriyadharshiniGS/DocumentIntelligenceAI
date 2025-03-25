@@ -20,9 +20,14 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limit upload size to 16MB
 
 # Initialize vector store
 vector_store = VectorStore()
+
+# Configure gunicorn timeout via environment variable
+if 'GUNICORN_TIMEOUT' not in os.environ:
+    os.environ['GUNICORN_TIMEOUT'] = '300'  # 5 minutes timeout
 
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {
