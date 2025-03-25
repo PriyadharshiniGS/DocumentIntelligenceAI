@@ -103,24 +103,11 @@ if 'documents' not in st.session_state:
 if 'vector_store' not in st.session_state:
     st.session_state.vector_store = VectorStore()
 
-def display_chat_history():
-    """Display the chat history."""
-    for i, chat in enumerate(st.session_state.chat_history):
-        with st.chat_message("user"):
-            st.write(chat['query'])
-        with st.chat_message("assistant"):
-            st.write(chat['response'])
-
 # Sidebar for file upload and document management
 with st.sidebar:
     st.markdown('<h1 class="sidebar-title">📚 Knowledge Library</h1>', unsafe_allow_html=True)
     
-    # Create a styled container for the upload section
-    st.markdown('<div class="sidebar-header">', unsafe_allow_html=True)
-    st.markdown('### Add New Content')
-    
     # File uploader with custom styling
-    st.markdown('<div class="upload-section">', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
         "Upload a file", 
         type=list(ALLOWED_EXTENSIONS.keys()),
@@ -213,8 +200,6 @@ with st.sidebar:
                     logger.error(f"Error processing file: {str(e)}")
                     import traceback
                     logger.error(traceback.format_exc())
-    st.markdown('</div>', unsafe_allow_html=True)  # Close upload-section
-    st.markdown('</div>', unsafe_allow_html=True)  # Close sidebar-header
     
     # Document management
     st.markdown('<div class="document-list">', unsafe_allow_html=True)
