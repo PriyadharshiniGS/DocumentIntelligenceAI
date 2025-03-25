@@ -68,31 +68,31 @@ def upload_file():
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No file part'}), 400
-        
+
         file = request.files['file']
-        
+
         if file.filename == '':
             return jsonify({'error': 'No selected file'}), 400
-        
+
         if not file or not allowed_file(file.filename):
             return jsonify({'error': 'File type not allowed'}), 400
-            
+
         # Create a unique filename
         original_filename = secure_filename(file.filename)
         file_type = get_file_type(original_filename)
         file_id = str(uuid.uuid4())
-        
+
         if not file_type:
             return jsonify({'error': 'Unsupported file extension'}), 400
-            
+
         # Log the file upload attempt
         logger.debug(f"Attempting to process file: {original_filename} of type {file_type}")
-        
+
         # Create a temporary directory for processing
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_filepath = os.path.join(temp_dir, original_filename)
             file.save(temp_filepath)
-            
+
             # Process the file based on its type
             if file_type == 'document':
                 logger.debug(f"Processing document: {original_filename}")
@@ -105,14 +105,14 @@ def upload_file():
                 text_chunks = process_video(temp_filepath)
             else:
                 return jsonify({'error': 'Unsupported file type'}), 400
-            
+
             # Make sure we have something to work with
             if not text_chunks or len(text_chunks) == 0:
                 return jsonify({'error': 'No content could be extracted from the file'}), 400
-                
+
             # Log successful text extraction
             logger.debug(f"Successfully extracted {len(text_chunks)} text chunks from {original_filename}")
-            
+
             # Get embeddings for each text chunk
             successful_embeddings = 0
             for i, chunk in enumerate(text_chunks):
@@ -121,10 +121,10 @@ def upload_file():
                     if not chunk or not chunk.strip():
                         logger.warning(f"Skipping empty chunk {i}")
                         continue
-                        
+
                     # Generate embedding
                     embedding = get_embeddings(chunk)
-                    
+
                     # Add to vector store with metadata
                     vector_store.add_embedding(
                         embedding, 
@@ -138,25 +138,25 @@ def upload_file():
                     successful_embeddings += 1
                 except Exception as e:
                     logger.error(f"Error embedding chunk {i}: {str(e)}")
-            
+
             # Check if we have any successful embeddings
             if successful_embeddings == 0:
                 return jsonify({'error': 'Failed to create embeddings for the document'}), 500
-                
+
             # Log successful embeddings
             logger.debug(f"Successfully created {successful_embeddings} embeddings for {original_filename}")
-            
+
             # Update session documents
             if 'documents' not in session:
                 session['documents'] = []
-                
+
             session['documents'].append({
                 'id': file_id,
                 'name': original_filename,
                 'type': file_type
             })
             session.modified = True
-            
+
             return jsonify({
                 'success': True,
                 'filename': original_filename,
@@ -165,7 +165,7 @@ def upload_file():
                 'chunkCount': len(text_chunks),
                 'embeddingCount': successful_embeddings
             })
-            
+
     except Exception as e:
         # Detailed error logging
         logger.error(f"Error processing file: {str(e)}")
@@ -180,24 +180,27 @@ def chat():
         # Check if we have valid JSON
         if not request.is_json:
             return jsonify({'error': 'Request must be JSON'}), 400
-            
+
         data = request.json
         query = data.get('message', '').strip()
-        
+
         # Validate query
         if not query:
             return jsonify({'error': 'No message provided'}), 400
-        
+
         logger.debug(f"Processing chat query: {query[:50]}...")
-        
-        # Generate embedding for query
+
+        # Generate embedding for query with timeout handling
         try:
-            query_embedding = get_embeddings(query)
+            query_embedding = get_embeddings(query, timeout=60)
             logger.debug("Successfully generated query embedding")
+        except TimeoutError:
+            logger.error("Timeout while generating embeddings")
+            return jsonify({'error': 'Processing took too long. Please try with a smaller file or chunk size.'}), 504
         except Exception as e:
             logger.error(f"Error generating query embedding: {str(e)}")
             return jsonify({'error': 'Failed to process your question. Please try again.'}), 500
-        
+
         # Search for relevant documents
         try:
             search_results = vector_store.search(query_embedding, k=5)
@@ -205,20 +208,20 @@ def chat():
         except Exception as e:
             logger.error(f"Error searching vector store: {str(e)}")
             return jsonify({'error': 'Error searching knowledge base. Please try again.'}), 500
-        
+
         # Handle case with no relevant documents
         if not search_results:
             logger.debug("No relevant documents found for query")
             return jsonify({
                 'answer': "I don't have enough information to answer that question. Try uploading relevant documents first."
             })
-        
+
         # Generate response using RAG
         try:
             # Extract context texts
             context_texts = [result['metadata']['text'] for result in search_results]
             context = "\n\n".join(context_texts)
-            
+
             # Generate response
             response = generate_response(query, context)
             logger.debug("Successfully generated response")
@@ -227,12 +230,12 @@ def chat():
             import traceback
             logger.error(traceback.format_exc())
             return jsonify({'error': 'Failed to generate a response. Please try again.'}), 500
-        
+
         # Update chat history
         try:
             if 'chat_history' not in session:
                 session['chat_history'] = []
-                
+
             session['chat_history'].append({
                 'query': query,
                 'response': response
@@ -241,18 +244,18 @@ def chat():
         except Exception as e:
             # Non-critical error, just log
             logger.error(f"Error updating chat history: {str(e)}")
-        
+
         # Get source documents for citation
         sources = []
         for result in search_results:
             if result['metadata']['file_name'] not in sources:
                 sources.append(result['metadata']['file_name'])
-        
+
         return jsonify({
             'answer': response,
             'sources': sources
         })
-        
+
     except Exception as e:
         # Catch-all for any other errors
         logger.error(f"Unexpected error in chat: {str(e)}")
@@ -280,11 +283,11 @@ def clear_session():
         # Clear session first
         logger.debug("Clearing session data")
         session.clear()
-        
+
         # Then clear vector store
         logger.debug("Clearing vector store")
         vector_store.clear()
-        
+
         logger.debug("Session and vector store successfully cleared")
         return jsonify({'success': True, 'message': 'Session data and documents cleared successfully'})
     except Exception as e:

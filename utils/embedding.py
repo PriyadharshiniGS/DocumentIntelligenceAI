@@ -37,7 +37,7 @@ def get_embedding_seed(text, dimension=1536):
     
     return vector.astype(np.float32)
 
-def get_embeddings(text):
+def get_embeddings(text, timeout=120):
     """
     Generate embeddings for the input text.
     
