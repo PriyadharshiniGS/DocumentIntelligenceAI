@@ -119,7 +119,15 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+            // Check if response is valid before parsing JSON
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}...`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             uploadingMessage.classList.add('d-none');
             if (data.error) {
@@ -148,7 +156,15 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({ message: message })
         })
-        .then(response => response.json())
+        .then(response => {
+            // Check if response is valid before parsing JSON
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}...`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             // Remove thinking message
             thinkingMessage.remove();
@@ -169,7 +185,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to fetch documents
     function fetchDocuments() {
         fetch('/documents')
-        .then(response => response.json())
+        .then(response => {
+            // Check if response is valid before parsing JSON
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}...`);
+                });
+            }
+            return response.json();
+        })
         .then(documents => {
             fileList.innerHTML = '';
             
@@ -208,6 +232,8 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error fetching documents:', error);
+            // Show error in file list area
+            fileList.innerHTML = `<div class="alert alert-danger">Error loading documents: ${error.message}</div>`;
         });
     }
     
@@ -216,7 +242,15 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/clear', {
             method: 'POST'
         })
-        .then(response => response.json())
+        .then(response => {
+            // Check if response is valid before parsing JSON
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}...`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 chatContainer.innerHTML = '';
