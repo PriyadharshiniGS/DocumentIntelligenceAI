@@ -28,18 +28,38 @@ def process_image(file_path):
         list: List of text chunks containing extracted information
     """
     try:
-        # Resize image if too large
-        with Image.open(file_path) as img:
-            # Resize if either dimension is greater than 2000px
-            if img.width > 2000 or img.height > 2000:
-                ratio = min(2000/img.width, 2000/img.height)
-                new_size = (int(img.width * ratio), int(img.height * ratio))
-                img = img.resize(new_size, Image.Resampling.LANCZOS)
-                img.save(file_path)
+        # Validate and resize image
+        try:
+            with Image.open(file_path) as img:
+                # Convert to RGB if needed
+                if img.mode not in ('RGB', 'L'):
+                    img = img.convert('RGB')
+                
+                # Resize if either dimension is greater than 1000px
+                if img.width > 1000 or img.height > 1000:
+                    ratio = min(1000/img.width, 1000/img.height)
+                    new_size = (int(img.width * ratio), int(img.height * ratio))
+                    img = img.resize(new_size, Image.Resampling.LANCZOS)
+                
+                # Save optimized image
+                img.save(file_path, 'JPEG', quality=85, optimize=True)
+        except Exception as e:
+            logger.error(f"Error processing image: {str(e)}")
+            return ["Error: Unable to process image format"]
 
-        # Process in parallel
-        ocr_text = extract_text_with_ocr(file_path)
-        vision_description = analyze_image_with_claude(file_path)
+        # Get OCR text with timeout
+        try:
+            ocr_text = extract_text_with_ocr(file_path)
+        except Exception as e:
+            logger.error(f"OCR error: {str(e)}")
+            ocr_text = ""
+
+        # Get vision description with timeout
+        try:
+            vision_description = analyze_image_with_claude(file_path)
+        except Exception as e:
+            logger.error(f"Vision API error: {str(e)}")
+            vision_description = ""
         
         results = []
         if ocr_text and ocr_text.strip():
