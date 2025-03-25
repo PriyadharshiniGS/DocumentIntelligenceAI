@@ -5,6 +5,7 @@ import uuid
 import streamlit as st
 import numpy as np
 import base64
+import time
 from pathlib import Path
 
 from utils.document_processor import process_document
@@ -51,7 +52,7 @@ def file_type_badge(file_type):
         badge_class = "image-badge"
     elif file_type == "video":
         badge_class = "video-badge"
-    
+
     return f'<span class="file-badge {badge_class}">{file_type.upper()}</span>'
 
 # Allowed file extensions
@@ -106,14 +107,14 @@ if 'vector_store' not in st.session_state:
 # Sidebar for file upload and document management
 with st.sidebar:
     st.markdown('<h1 class="sidebar-title">📚 Knowledge Library</h1>', unsafe_allow_html=True)
-    
+
     # File uploader with custom styling
     uploaded_file = st.file_uploader(
         "Upload a file", 
         type=list(ALLOWED_EXTENSIONS.keys()),
         help="Supported formats: PDF, DOCX, CSV, JPG, JPEG, PNG, MP4, MOV, AVI"
     )
-    
+
     # Upload button and processing
     if uploaded_file is not None:
         process_button = st.button("📤 Process File", use_container_width=True, type="primary")
@@ -124,18 +125,18 @@ with st.sidebar:
                     original_filename = secure_filename(uploaded_file.name)
                     file_type = get_file_type(original_filename)
                     file_id = str(uuid.uuid4())
-                    
+
                     if not file_type:
                         st.error("❌ Unsupported file extension")
                     else:
                         # Create a temporary directory for processing
                         with tempfile.TemporaryDirectory() as temp_dir:
                             temp_filepath = os.path.join(temp_dir, original_filename)
-                            
+
                             # Save uploaded file to temporary location
                             with open(temp_filepath, "wb") as f:
                                 f.write(uploaded_file.getbuffer())
-                            
+
                             # Process the file based on its type
                             file_icon = FILE_ICONS.get(file_type, "📄")
                             if file_type == 'document':
@@ -147,7 +148,7 @@ with st.sidebar:
                             elif file_type == 'video':
                                 st.info(f"{file_icon} Processing video: {original_filename}")
                                 text_chunks = process_video(temp_filepath)
-                            
+
                             # Make sure we have something to work with
                             if not text_chunks or len(text_chunks) == 0:
                                 st.error("❌ No content could be extracted from the file")
@@ -156,17 +157,17 @@ with st.sidebar:
                                 with st.status("Generating embeddings...", expanded=True) as status:
                                     successful_embeddings = 0
                                     total_chunks = len(text_chunks)
-                                    
+
                                     for i, chunk in enumerate(text_chunks):
                                         try:
                                             # Skip empty chunks
                                             if not chunk or not chunk.strip():
                                                 continue
-                                            
+
                                             status.update(label=f"Processing chunk {i+1}/{total_chunks}")
                                             # Generate embedding
                                             embedding = get_embeddings(chunk)
-                                            
+
                                             # Add to vector store with metadata
                                             st.session_state.vector_store.add_embedding(
                                                 embedding, 
@@ -180,9 +181,9 @@ with st.sidebar:
                                             successful_embeddings += 1
                                         except Exception as e:
                                             logger.error(f"Error embedding chunk {i}: {str(e)}")
-                                    
+
                                     status.update(label="Embedding generation complete!", state="complete")
-                                
+
                                 # Check if we have any successful embeddings
                                 if successful_embeddings == 0:
                                     st.error("❌ Failed to create embeddings for the document")
@@ -193,18 +194,18 @@ with st.sidebar:
                                         'name': original_filename,
                                         'type': file_type
                                     })
-                                    
+
                                     st.success(f"✅ Successfully processed {original_filename} with {successful_embeddings} embeddings from {len(text_chunks)} chunks.")
                 except Exception as e:
                     st.error(f"❌ Error processing file: {str(e)}")
                     logger.error(f"Error processing file: {str(e)}")
                     import traceback
                     logger.error(traceback.format_exc())
-    
+
     # Document management
     st.markdown('<div class="document-list">', unsafe_allow_html=True)
     st.markdown('<h3 style="color: #7792E3; margin-bottom: 15px;">📋 Your Knowledge Base</h3>', unsafe_allow_html=True)
-    
+
     if not st.session_state.documents:
         st.markdown('<div style="text-align: center; padding: 20px; opacity: 0.7;">No documents uploaded yet.<br>Upload files to start building your knowledge base.</div>', unsafe_allow_html=True)
     else:
@@ -218,7 +219,7 @@ with st.sidebar:
                 {badge}
             </div>
             """, unsafe_allow_html=True)
-    
+
     # Clear all button
     if st.session_state.documents:
         st.markdown('<div style="padding-top: 10px;">', unsafe_allow_html=True)
@@ -229,7 +230,7 @@ with st.sidebar:
             st.success("🔄 All documents and chat history cleared!")
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-    
+
     st.markdown('</div>', unsafe_allow_html=True)  # Close document-list
 
 # Main page content
@@ -265,14 +266,14 @@ def display_chat_history():
             # User message with custom styling
             with st.chat_message("user", avatar="👤"):
                 st.markdown(f"<div class='user-message'>{chat['query']}</div>", unsafe_allow_html=True)
-            
+
             # Assistant message with custom styling
             with st.chat_message("assistant", avatar="🤖"):
                 response_parts = chat['response'].split("Sources:")
                 main_response = response_parts[0]
-                
+
                 st.markdown(f"<div class='assistant-message'>{main_response}</div>", unsafe_allow_html=True)
-                
+
                 # Display sources if available
                 if len(response_parts) > 1:
                     source_text = response_parts[1]
@@ -284,19 +285,20 @@ display_chat_history()
 # Chat input with enhanced styling
 st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
 if user_query := st.chat_input("Ask a question about your documents...", key="chat_input"):
+    start_time = time.time() #Start time tracking here
     # Add user message to chat history immediately
     with st.chat_message("user", avatar="👤"):
         st.markdown(f"<div class='user-message'>{user_query}</div>", unsafe_allow_html=True)
-    
+
     # Process the query
     with st.spinner("🤔 Thinking..."):
         try:
             # Generate embedding for query
             query_embedding = get_embeddings(user_query, timeout=60)
-            
+
             # Search for relevant documents
             search_results = st.session_state.vector_store.search(query_embedding, k=5)
-            
+
             # Generate response
             if not search_results:
                 response = "I don't have enough information to answer that question. Try uploading relevant documents first."
@@ -305,30 +307,32 @@ if user_query := st.chat_input("Ask a question about your documents...", key="ch
                 # Extract context texts
                 context_texts = [result['metadata']['text'] for result in search_results]
                 context = "\n\n".join(context_texts)
-                
+
                 # Generate response
                 response = generate_response(user_query, context)
-                
+
                 # Get source documents for citation
                 sources = []
                 for result in search_results:
                     if result['metadata']['file_name'] not in sources:
                         sources.append(result['metadata']['file_name'])
-            
+
+                # Calculate response time
+                st.session_state.response_time = time.time() - start_time
             # Display assistant response with custom styling
             with st.chat_message("assistant", avatar="🤖"):
                 st.markdown(f"<div class='assistant-message'>{response}</div>", unsafe_allow_html=True)
-                
+
                 if sources:
                     source_list = "<br>".join([f"• {source}" for source in sources])
                     st.markdown(f"<div class='source-citation'><strong>Sources:</strong><br>{source_list}</div>", unsafe_allow_html=True)
-            
+
             # Update chat history
             st.session_state.chat_history.append({
                 'query': user_query,
                 'response': response + ("\nSources: " + ", ".join(sources) if sources else "")
             })
-            
+
         except Exception as e:
             st.error(f"❌ Error processing your question: {str(e)}")
             logger.error(f"Error in chat: {str(e)}")
