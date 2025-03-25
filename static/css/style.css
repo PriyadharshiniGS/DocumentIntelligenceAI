@@ -1,105 +1,57 @@
-/* Enhanced UI styles */
-:root {
-    --gradient-bg: linear-gradient(135deg, var(--bs-primary-bg-subtle) 0%, var(--bs-secondary-bg-subtle) 100%);
-}
-
+/* Custom styles to complement the Bootstrap styles */
 .chat-container {
-    height: 75vh;
+    height: 70vh;
     overflow-y: auto;
-    padding: 20px;
-    border-radius: 12px;
-    background: var(--gradient-bg);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    scrollbar-width: thin;
-}
-
-.chat-container::-webkit-scrollbar {
-    width: 6px;
-}
-
-.chat-container::-webkit-scrollbar-thumb {
-    background-color: var(--bs-primary);
-    border-radius: 3px;
+    padding: 15px;
+    border-radius: 5px;
 }
 
 .message {
-    padding: 12px 18px;
-    margin-bottom: 15px;
-    border-radius: 15px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    max-width: 80%;
-    animation: fadeIn 0.3s ease-in;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
 }
 
 .user-message {
-    background-color: var(--bs-primary);
-    color: white;
+    background-color: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text);
     align-self: flex-end;
-    margin-left: auto;
-    border-bottom-right-radius: 5px;
+    margin-left: 20%;
 }
 
 .bot-message {
-    background-color: var(--bs-dark-bg-subtle);
-    color: var(--bs-emphasis-color);
+    background-color: var(--bs-secondary-bg-subtle);
+    color: var(--bs-secondary-text);
     align-self: flex-start;
-    margin-right: auto;
-    border-bottom-left-radius: 5px;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    margin-right: 20%;
 }
 
 .file-upload-area {
     border: 2px dashed var(--bs-border-color);
-    border-radius: 12px;
-    padding: 25px;
+    border-radius: 5px;
+    padding: 20px;
     text-align: center;
     cursor: pointer;
-    transition: all 0.3s ease;
-    background: var(--bs-dark-bg-subtle);
+    transition: border-color 0.3s ease;
 }
 
 .file-upload-area:hover {
     border-color: var(--bs-primary);
-    background: var(--bs-primary-bg-subtle);
-    transform: translateY(-2px);
-}
-
-.file-upload-area i {
-    color: var(--bs-primary);
-    transition: transform 0.3s ease;
-}
-
-.file-upload-area:hover i {
-    transform: scale(1.1);
 }
 
 .file-list {
-    max-height: 250px;
+    max-height: 200px;
     overflow-y: auto;
-    padding: 5px;
-    margin-top: 15px;
-    border-radius: 8px;
-    background: var(--bs-dark-bg-subtle);
 }
 
 .file-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 15px;
-    margin-bottom: 8px;
-    border-radius: 8px;
+    padding: 5px 10px;
+    margin-bottom: 5px;
+    border-radius: 5px;
     background-color: var(--bs-secondary-bg-subtle);
-    transition: all 0.2s ease;
-}
-
-.file-item:hover {
-    transform: translateX(5px);
-    background-color: var(--bs-primary-bg-subtle);
 }
 
 .source-list {
