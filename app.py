@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 import logging
 import tempfile
 import uuid
@@ -102,7 +106,7 @@ if 'chat_history' not in st.session_state:
 if 'documents' not in st.session_state:
     st.session_state.documents = []
 if 'vector_store' not in st.session_state:
-    st.session_state.vector_store = VectorStore()
+    st.session_state.vector_store = VectorStore()  # Ensure VectorStore is compatible with Streamlit
 
 # Sidebar for file upload and document management
 with st.sidebar:
@@ -133,7 +137,7 @@ with st.sidebar:
             with cols[i]:
                 st.metric(type_name.title(), count)
     
-    st.divider()
+    st.divider()  # Ensure the layout is consistent
 
     # File uploader with custom styling
     uploaded_file = st.file_uploader(
@@ -247,16 +251,17 @@ with st.sidebar:
             </div>
             """, unsafe_allow_html=True)
 
-    # Clear all button
-    if st.session_state.documents:
-        st.markdown('<div style="padding-top: 10px;">', unsafe_allow_html=True)
-        if st.button("🗑️ Clear All Documents", use_container_width=True, type="secondary"):
-            st.session_state.documents = []
-            st.session_state.vector_store.clear()
-            st.session_state.chat_history = []
-            st.success("🔄 All documents and chat history cleared!")
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+# Clear all button
+if st.session_state.documents:
+    st.markdown('<div style="padding-top: 10px;">', unsafe_allow_html=True)
+    if st.button("🗑️ Clear All Documents", use_container_width=True, type="secondary"):
+        st.session_state.documents = []
+        st.session_state.vector_store.clear()  # Ensure vector store is cleared
+        st.session_state.chat_history = []
+        st.success("🔄 All documents and chat history cleared!")
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)  # Close div properly
+
 
     st.markdown('</div>', unsafe_allow_html=True)  # Close document-list
 

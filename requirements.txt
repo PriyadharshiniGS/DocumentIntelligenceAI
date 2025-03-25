@@ -1,0 +1,5 @@
+streamlit
+numpy
+anthropic
+python-dotenv
+# Add any other dependencies used in the project here
