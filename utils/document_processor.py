@@ -134,7 +134,7 @@ def process_csv(file_path):
         
         # Read CSV in chunks to avoid memory issues
         chunks = []
-        chunk_size = 100
+        chunk_size = 50  # Reduced chunk size for better performance
         
         # First get column info and basic stats
         df_info = pd.read_csv(file_path, nrows=1)
