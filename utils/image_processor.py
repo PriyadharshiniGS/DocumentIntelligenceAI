@@ -28,24 +28,28 @@ def process_image(file_path):
         list: List of text chunks containing extracted information
     """
     try:
-        # First, try OCR with Tesseract to extract any text
+        # Resize image if too large
+        with Image.open(file_path) as img:
+            # Resize if either dimension is greater than 2000px
+            if img.width > 2000 or img.height > 2000:
+                ratio = min(2000/img.width, 2000/img.height)
+                new_size = (int(img.width * ratio), int(img.height * ratio))
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
+                img.save(file_path)
+
+        # Process in parallel
         ocr_text = extract_text_with_ocr(file_path)
-        
-        # Then, use Claude Vision to analyze the image
         vision_description = analyze_image_with_claude(file_path)
         
-        # Combine results
         results = []
-        
-        if ocr_text.strip():
+        if ocr_text and ocr_text.strip():
             results.append(f"Text extracted from image:\n{ocr_text}")
         
         if vision_description:
             results.append(f"Image description:\n{vision_description}")
-        
-        # If no results were obtained, return a fallback message
+            
         if not results:
-            results.append("No text or meaningful content could be extracted from this image.")
+            results.append("No meaningful content could be extracted from this image.")
         
         return results
     
