@@ -132,6 +132,37 @@ def process_csv(file_path):
         # Log the CSV processing attempt
         logger.debug(f"Attempting to process CSV file: {file_path}")
         
+        chunks = []
+        # Read only first few rows to get schema and sample data
+        df_sample = pd.read_csv(file_path, nrows=10)
+        
+        # Basic file info
+        cols = df_sample.columns.tolist()
+        overview = f"CSV file with {len(cols)} columns: {', '.join(cols)}\n\n"
+        chunks.append(overview)
+        
+        # Process numeric columns in sample
+        numeric_cols = df_sample.select_dtypes(include=['number']).columns
+        if len(numeric_cols) > 0:
+            stats = df_sample[numeric_cols].agg(['mean', 'min', 'max']).round(2)
+            stats_text = ["Numeric column statistics:"]
+            for col in numeric_cols:
+                stats_text.append(f"{col} - mean: {stats.loc['mean', col]}, min: {stats.loc['min', col]}, max: {stats.loc['max', col]}")
+            chunks.append("\n".join(stats_text))
+        
+        # Add sample rows
+        samples = []
+        for _, row in df_sample.iterrows():
+            row_text = []
+            for col in cols:
+                val = str(row[col]) if pd.notna(row[col]) else "NULL"
+                row_text.append(f"{col}: {val}")
+            samples.append(", ".join(row_text))
+        
+        chunks.append("\nSample rows:\n" + "\n".join(samples))
+        
+        return chunks
+        
         # Read CSV in chunks to avoid memory issues
         chunks = []
         chunk_size = 50  # Reduced chunk size for better performance
