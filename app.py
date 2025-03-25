@@ -107,6 +107,33 @@ if 'vector_store' not in st.session_state:
 # Sidebar for file upload and document management
 with st.sidebar:
     st.markdown('<h1 class="sidebar-title">📚 Knowledge Library</h1>', unsafe_allow_html=True)
+    
+    # Display evaluation metrics
+    st.markdown("### 📊 System Metrics")
+    
+    # Model Performance
+    st.markdown("#### Model Performance")
+    if 'response_time' in st.session_state:
+        st.metric("Response Time", f"{st.session_state.response_time:.2f}s")
+    
+    # Document Stats
+    st.markdown("#### Document Statistics")
+    doc_count = len(st.session_state.documents)
+    st.metric("Total Documents", doc_count)
+    
+    # Document Types
+    if st.session_state.documents:
+        doc_types = {}
+        for doc in st.session_state.documents:
+            doc_types[doc['type']] = doc_types.get(doc['type'], 0) + 1
+        
+        st.markdown("#### Document Types")
+        cols = st.columns(len(doc_types))
+        for i, (type_name, count) in enumerate(doc_types.items()):
+            with cols[i]:
+                st.metric(type_name.title(), count)
+    
+    st.divider()
 
     # File uploader with custom styling
     uploaded_file = st.file_uploader(
