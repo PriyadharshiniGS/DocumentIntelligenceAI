@@ -30,6 +30,9 @@ streamlit run app.py
 ## License
 This project is licensed under the MIT License.
 
+## Live link
+https://documentintelligenceai.onrender.com
+
 ## Output
 ![image](https://github.com/user-attachments/assets/afc042e8-d8c4-42d3-83b0-e1c458ec8159)
 ![image](https://github.com/user-attachments/assets/aba1ab0e-4161-41d2-8956-5c50a59ad1f8)
