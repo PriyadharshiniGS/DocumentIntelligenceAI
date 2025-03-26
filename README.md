@@ -29,3 +29,18 @@ streamlit run app.py
 
 ## License
 This project is licensed under the MIT License.
+
+## Output
+![image](https://github.com/user-attachments/assets/afc042e8-d8c4-42d3-83b0-e1c458ec8159)
+![image](https://github.com/user-attachments/assets/aba1ab0e-4161-41d2-8956-5c50a59ad1f8)
+![image](https://github.com/user-attachments/assets/cb9e1732-71bc-492b-98a2-44a5700a6b61)
+![image](https://github.com/user-attachments/assets/ae8373f3-cd5b-41e3-980f-35426de23750)
+![image](https://github.com/user-attachments/assets/afd7221e-c70b-472a-b2e8-4b26a9616f77)
+![image](https://github.com/user-attachments/assets/ff325c67-6792-4843-bdb0-c3d55d5f8db9)
+![image](https://github.com/user-attachments/assets/940e2859-11e3-4c20-84b8-bb0445531db5)
+
+
+
+
+
+
